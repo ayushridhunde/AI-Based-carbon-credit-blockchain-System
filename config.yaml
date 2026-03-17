@@ -1,0 +1,18 @@
+credentials:
+  usernames:
+    ayushri:
+      email: ayushri@raisoni.net
+      name: Ayushri Dhunde
+      # Use the long hashed string from your generate_keys.py here
+      password: $2b$12$SWd9ER3STzcebQmBKV4StehHWSaUtmYdf2lIaWfeotygC4U0jdFk2 
+    intern_1:
+      email: intern@codsoft.com
+      name: ML Intern
+      password: $2b$12$AnotherHashedPasswordHere
+cookie:
+  expiry_days: 30
+  key: some_random_secret_key
+  name: carbon_auth_cookie
+pre-authorized:
+  emails:
+    - ayushri@raisoni.net
