@@ -4,7 +4,6 @@ import os
 import json
 import pandas as pd
 from dotenv import load_dotenv
-import datetime # Import ko upar rakhein
 
 # 1. Load environment variables
 load_dotenv()
@@ -14,8 +13,12 @@ sender_address = os.getenv("SENDER_ADDRESS")
 private_key = os.getenv("PRIVATE_KEY")
 
 # 2. Setup ABI and Web3 connection
-with open("abi.json") as f:
-    contract_abi = json.load(f)
+# Ensure abi.json exists in your folder
+try:
+    with open("abi.json") as f:
+        contract_abi = json.load(f)
+except FileNotFoundError:
+    st.error("abi.json file not found! Please upload it to your repository.")
 
 w3 = Web3(Web3.HTTPProvider(infura_url))
 contract = w3.eth.contract(address=contract_address, abi=contract_abi)
@@ -58,64 +61,55 @@ def main_dashboard():
         amount = st.number_input("Credit Amount (Tons)", min_value=1)
         
         if st.button("Submit to Blockchain"):
-            if st.button("Register Carbon Credit"):
-                if company_name and amount > 0: # Ensure variable names match your input fields
-                    try:
-            # Step 1: Trigger the transaction
-            with st.spinner("Processing transaction on Ethereum Sepolia..."):
-                tx_hash = contract.functions.addCredit(company_name, int(amount)).transact()
-                
-                # Step 2: Convert Hash to readable string
-                hash_id = tx_hash.hex() 
-                
-                # Step 3: Success UI
-                st.success("Transaction Successful!")
-                st.balloons()
-                
-                # Step 4: Display Hash ID clearly for the examiner
-                st.subheader("Blockchain Receipt")
-                st.info(f"**Transaction Hash ID:**")
-                st.code(hash_id) # This adds a copy button automatically
-                
-                # Step 5: Direct Link to Etherscan
-                etherscan_url = f"https://sepolia.etherscan.io/tx/{hash_id}"
-                st.link_button("Verify on Etherscan", etherscan_url)
-                
-        except Exception as e:
-            st.error(f"Blockchain Error: {e}")
-    else:
-        st.warning("Please enter a valid company name and amount.")
-
-        except Exception as e:
-            st.error(f"Transaction Failed: {e}")
-    else:
-        st.warning("Please enter valid company details and credit amount.")
-            if company:
+            if company and amount > 0:
                 try:
                     with st.spinner("Processing transaction..."):
+                        # Get the latest nonce
                         nonce = w3.eth.get_transaction_count(sender_address)
+                        
+                        # Build the transaction
                         tx = contract.functions.addCredit(company, amount).build_transaction({
-                            'chainId': 11155111,
+                            'chainId': 11155111, # Sepolia Chain ID
                             'gas': 200000,
                             'gasPrice': w3.eth.gas_price,
                             'nonce': nonce,
                         })
+                        
+                        # Sign the transaction
                         signed_tx = w3.eth.account.sign_transaction(tx, private_key)
-                        tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction) 
-                        st.success(f"Transaction Sent! Hash: {w3.to_hex(tx_hash)}")
+                        
+                        # Send the transaction
+                        tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+                        
+                        # Wait for transaction to be mined
+                        receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+                        
+                        # DISPLAY RESULTS
+                        st.success("Transaction Successful!")
+                        st.balloons()
+                        
+                        hash_id = tx_hash.hex()
+                        st.subheader("🔗 Blockchain Receipt")
+                        st.code(hash_id)
+                        
+                        etherscan_url = f"https://sepolia.etherscan.io/tx/{hash_id}"
+                        st.link_button("Verify on Etherscan", etherscan_url)
+                        
                 except Exception as e:
                     st.error(f"Blockchain Error: {e}")
             else:
-                st.warning("Please enter a company name.")
+                st.warning("Please enter a valid company name and amount.")
 
     with tab2:
         st.header("Carbon Credit Ledger")
         if st.button("Fetch Latest Data"):
             try:
-                data = contract.functions.getCredits().call()
+                # Assuming your contract function is called getCredits() or getHistory()
+                # Update this name to match your Solidity function
+                data = contract.functions.getCredits().call() 
                 if data:
                     df = pd.DataFrame(data, columns=["Company Name", "Credits (Tons)", "Timestamp"])
-                    # FIXED: Formatting yahan honi chahiye
+                    # Convert UNIX timestamp to readable format
                     df['Timestamp'] = pd.to_datetime(df['Timestamp'], unit='s').dt.strftime('%d-%m-%Y %H:%M')
                     st.table(df)
                 else:
